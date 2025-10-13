@@ -4,6 +4,8 @@
 #include <vector>
 #include <cstdint>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 const std::string MODEL_PATH = "models/model1.bin";
 const std::string TRAIN_IMAGES = "MNIST/train-images-idx3-ubyte";
@@ -11,33 +13,17 @@ const std::string TRAIN_LABELS = "MNIST/train-labels-idx1-ubyte";
 const std::string TEST_IMAGES = "MNIST/t10k-images-idx3-ubyte";
 const std::string TEST_LABELS = "MNIST/t10k-labels-idx1-ubyte";
 
+std::unordered_map<std::string, std::vector<std::string>> filepath_to_model_iteration; // given a filepath, stores information about it
+
 int reverseInt(int i);
 Matrix labelToOneHot(unsigned char label);
-void train_model(const std::string& images_file, const std::string& labels_file);
+void train_model(const std::string& images_file, const std::string& labels_file, int num_epochs);
 void test_model(const std::string& images_file, const std::string& labels_file);
 static int argmax(const Matrix& m);
 
 int main() {
-    // main from claude to open / convert files to arrays
-    // Open the image file
-    // std::ifstream imageFile("MNIST/train-images-idx3-ubyte", std::ios::binary);
-    // if (!imageFile.is_open()) {
-    //     std::cerr << "Cannot open image file!" << std::endl;
-    //     return 1;
-    // }
-    
-    // // Open the label file
-    // std::ifstream labelFile("MNIST/train-labels-idx1-ubyte", std::ios::binary);
-    // if (!labelFile.is_open()) {
-    //     std::cerr << "Cannot open label file!" << std::endl;
-    //     return 1;
-    // }
-
-    // train_model(TRAIN_IMAGES, TRAIN_LABELS);
+    train_model(TRAIN_IMAGES, TRAIN_LABELS, 5);
     test_model(TEST_IMAGES, TEST_LABELS);
-
-    // imageFile.close();
-    // labelFile.close();
     
     return 0;
 }
@@ -72,7 +58,7 @@ static int argmax(const Matrix& m) {
 }
 
 // actually train the model
-void train_model(const std::string& image_filepath, const std::string& label_filepath) {
+void train_model(const std::string& image_filepath, const std::string& label_filepath, int num_epochs) {
     std::ifstream images_file(image_filepath, std::ios::binary);
     if (!images_file.is_open()) {
         std::cerr << "Cannot open image file!" << std::endl;
@@ -129,6 +115,7 @@ void train_model(const std::string& image_filepath, const std::string& label_fil
     }
 
     std::cout << images.size() << " images loaded" << std::endl;
+    images_file.close();
     
     // Read one label
     std::vector<Matrix> labels;
@@ -141,13 +128,14 @@ void train_model(const std::string& image_filepath, const std::string& label_fil
     }
 
     std::cout << labels.size() << " labels loaded" << std::endl;
+    labels_file.close();
     
     NeuralNetwork number_gooner(.001);
     number_gooner.addLayer(784, 256);
     number_gooner.addLayer(256, 128);
     number_gooner.addLayer(128, 10);
 
-    number_gooner.train(images, labels, 1);
+    number_gooner.train(images, labels, num_epochs);
 
     number_gooner.save_model(MODEL_PATH);
 }
@@ -209,6 +197,7 @@ void test_model(const std::string& image_filepath, const std::string& label_file
     }
 
     std::cout << images.size() << " images loaded" << std::endl;
+    images_file.close();
     
     // read one label
     std::vector<Matrix> labels;
@@ -221,6 +210,7 @@ void test_model(const std::string& image_filepath, const std::string& label_file
     }
 
     std::cout << labels.size() << " labels loaded" << std::endl;
+    labels_file.close();
 
     NeuralNetwork number_gooner = NeuralNetwork(.001);
     number_gooner.load_model(MODEL_PATH);

@@ -52,9 +52,12 @@ double NeuralNetwork::calculateLoss(Matrix& predicted, Matrix& target) {
 void NeuralNetwork::train(std::vector<Matrix>& data, std::vector<Matrix>& labels, int epochs) {
     size_t data_count = data.size();
     double total_loss = 0.0;
+    auto total_timer = std::chrono::steady_clock::now(); // timer for total time
+
 
     for (int epoch = 0; epoch < epochs; epoch++) {
-        auto last_print = std::chrono::steady_clock::now();
+        auto last_print = std::chrono::steady_clock::now(); // timer to print every second
+        auto epoch_timer = std::chrono::steady_clock::now(); // timer to time the current epoch
 
         for (size_t i = 0; i < data.size(); i++) {
             Matrix output = forward(data[i]);
@@ -70,10 +73,26 @@ void NeuralNetwork::train(std::vector<Matrix>& data, std::vector<Matrix>& labels
             }
         }
 
-        std::cout << "~~~~~~~~~~ EPOCH " << epoch << "finished! ~~~~~~~~~~" << std::endl;
+        auto epoch_end = std::chrono::steady_clock::now();
+        auto epoch_duration = std::chrono::duration_cast<std::chrono::seconds>(epoch_end - epoch_timer);
+        
+        int total_seconds = epoch_duration.count();
+        int minutes = total_seconds / 60;
+        int seconds = total_seconds % 60;
+        
+        std::cout << "~~~~ EPOCH " << epoch + 1 << " finished in " 
+                << minutes << "m " << seconds << "s ~~~~" << std::endl;
     }
 
+    auto timer_end = std::chrono::steady_clock::now();
+    auto timer_duration = std::chrono::duration_cast<std::chrono::seconds>(timer_end - total_timer);
+
+    int total_seconds = timer_duration.count();
+    int minutes = total_seconds / 60;
+    int seconds = total_seconds % 60;
+
     std::cout << "total loss: " << total_loss << std::endl;
+    std::cout << "total time taken: " << minutes << "m " << seconds << "s" << std::endl;
 }
 
 
