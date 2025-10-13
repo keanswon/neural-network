@@ -1,10 +1,10 @@
 #pragma once
 #include <iostream>
 #include <vector>
+#include <string>
 #include "Layer.hpp"
 #include "Matrix.hpp"
 #include "Helpers.hpp"
-
 
 class NeuralNetwork {
 private:
@@ -18,4 +18,6 @@ public:
     void backward(Matrix& target, Matrix& output);
     double calculateLoss(Matrix& predicted, Matrix& target);
     void train(std::vector<Matrix>& data, std::vector<Matrix>& labels, int epochs);
+    void save_model(std::string filepath);
+    void load_model(std::string filepath);
 };

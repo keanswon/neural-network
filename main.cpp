@@ -3,7 +3,46 @@
 #include <fstream>
 #include <vector>
 #include <cstdint>
+#include <string>
 
+const std::string MODEL_PATH = "models/model1.bin";
+const std::string TRAIN_IMAGES = "MNIST/train-images-idx3-ubyte";
+const std::string TRAIN_LABELS = "MNIST/train-labels-idx1-ubyte";
+const std::string TEST_IMAGES = "MNIST/t10k-images-idx3-ubyte";
+const std::string TEST_LABELS = "MNIST/t10k-labels-idx1-ubyte";
+
+int reverseInt(int i);
+Matrix labelToOneHot(unsigned char label);
+void train_model(const std::string& images_file, const std::string& labels_file);
+void test_model(const std::string& images_file, const std::string& labels_file);
+static int argmax(const Matrix& m);
+
+int main() {
+    // main from claude to open / convert files to arrays
+    // Open the image file
+    // std::ifstream imageFile("MNIST/train-images-idx3-ubyte", std::ios::binary);
+    // if (!imageFile.is_open()) {
+    //     std::cerr << "Cannot open image file!" << std::endl;
+    //     return 1;
+    // }
+    
+    // // Open the label file
+    // std::ifstream labelFile("MNIST/train-labels-idx1-ubyte", std::ios::binary);
+    // if (!labelFile.is_open()) {
+    //     std::cerr << "Cannot open label file!" << std::endl;
+    //     return 1;
+    // }
+
+    // train_model(TRAIN_IMAGES, TRAIN_LABELS);
+    test_model(TEST_IMAGES, TEST_LABELS);
+
+    // imageFile.close();
+    // labelFile.close();
+    
+    return 0;
+}
+
+// helpers for reading file
 int reverseInt(int i) {
     unsigned char c1, c2, c3, c4;
     c1 = i & 255;
@@ -19,35 +58,44 @@ Matrix labelToOneHot(unsigned char label) {
     return oneHot;
 }
 
-int main() {
-    // main from claude to open / convert files to arrays
-    // Open the image file
-    std::ifstream imageFile("MNIST/train-images-idx3-ubyte", std::ios::binary);
-    if (!imageFile.is_open()) {
+static int argmax(const Matrix& m) {
+    int maxIdx = 0;
+    double maxVal = m.get(0, 0);
+    
+    for (int i = 1; i < m.get_rows(); i++) {
+        if (m.get(i, 0) > maxVal) {
+            maxVal = m.get(i, 0);
+            maxIdx = i;
+        }
+    }
+    return maxIdx;
+}
+
+// actually train the model
+void train_model(const std::string& image_filepath, const std::string& label_filepath) {
+    std::ifstream images_file(image_filepath, std::ios::binary);
+    if (!images_file.is_open()) {
         std::cerr << "Cannot open image file!" << std::endl;
-        return 1;
     }
     
     // Open the label file
-    std::ifstream labelFile("MNIST/train-labels-idx1-ubyte", std::ios::binary);
-    if (!labelFile.is_open()) {
+    std::ifstream labels_file(label_filepath, std::ios::binary);
+    if (!labels_file.is_open()) {
         std::cerr << "Cannot open label file!" << std::endl;
-        return 1;
     }
-    
     // Read image file header
     int magic_number = 0, n_images = 0, n_rows = 0, n_cols = 0;
     
-    imageFile.read((char*)&magic_number, sizeof(magic_number));
+    images_file.read((char*)&magic_number, sizeof(magic_number));
     magic_number = reverseInt(magic_number);
     
-    imageFile.read((char*)&n_images, sizeof(n_images));
+    images_file.read((char*)&n_images, sizeof(n_images));
     n_images = reverseInt(n_images);
     
-    imageFile.read((char*)&n_rows, sizeof(n_rows));
+    images_file.read((char*)&n_rows, sizeof(n_rows));
     n_rows = reverseInt(n_rows);
     
-    imageFile.read((char*)&n_cols, sizeof(n_cols));
+    images_file.read((char*)&n_cols, sizeof(n_cols));
     n_cols = reverseInt(n_cols);
     
     std::cout << "Images: " << n_images << std::endl;
@@ -56,10 +104,10 @@ int main() {
     // Read label file header
     int magic_number_labels = 0, n_labels = 0;
     
-    labelFile.read((char*)&magic_number_labels, sizeof(magic_number_labels));
+    labels_file.read((char*)&magic_number_labels, sizeof(magic_number_labels));
     magic_number_labels = reverseInt(magic_number_labels);
     
-    labelFile.read((char*)&n_labels, sizeof(n_labels));
+    labels_file.read((char*)&n_labels, sizeof(n_labels));
     n_labels = reverseInt(n_labels);
     
     std::cout << "Labels: " << n_labels << std::endl;
@@ -74,13 +122,13 @@ int main() {
     unsigned char buffer[784];
 
     for (size_t img = 0; img < num_images; img++) {
-        imageFile.read((char*)buffer, 784);
+        images_file.read((char*)buffer, 784);
         
         // make a column vector, this is 62x faster than reading byte by byte
         images.emplace_back(784, 1, buffer, 1.0/255.0);
     }
 
-    std::cout << images.size() << "images loaded" << std::endl;
+    std::cout << images.size() << " images loaded" << std::endl;
     
     // Read one label
     std::vector<Matrix> labels;
@@ -88,7 +136,7 @@ int main() {
 
     for (size_t i = 0; i < num_images; i++) {  // Changed variable name to avoid shadowing
         unsigned char label = 0;
-        labelFile.read((char*)&label, 1);
+        labels_file.read((char*)&label, 1);
         labels.emplace_back(labelToOneHot(label));  // Use the one-hot conversion
     }
 
@@ -99,10 +147,95 @@ int main() {
     number_gooner.addLayer(256, 128);
     number_gooner.addLayer(128, 10);
 
-    number_gooner.train(images, labels, 5);
+    number_gooner.train(images, labels, 1);
+
+    number_gooner.save_model(MODEL_PATH);
+}
+
+// test the model
+void test_model(const std::string& image_filepath, const std::string& label_filepath) {
+    std::ifstream images_file(image_filepath, std::ios::binary);
+    if (!images_file.is_open()) {
+        std::cerr << "Cannot open image file!" << std::endl;
+    }
     
-    imageFile.close();
-    labelFile.close();
+    // Open the label file
+    std::ifstream labels_file(label_filepath, std::ios::binary);
+    if (!labels_file.is_open()) {
+        std::cerr << "Cannot open label file!" << std::endl;
+    }
+
+    // reading is the same as training the model
+    int magic_number = 0, n_images = 0, n_rows = 0, n_cols = 0;
     
-    return 0;
+    images_file.read((char*)&magic_number, sizeof(magic_number));
+    magic_number = reverseInt(magic_number);
+    
+    images_file.read((char*)&n_images, sizeof(n_images));
+    n_images = reverseInt(n_images);
+    
+    images_file.read((char*)&n_rows, sizeof(n_rows));
+    n_rows = reverseInt(n_rows);
+    
+    images_file.read((char*)&n_cols, sizeof(n_cols));
+    n_cols = reverseInt(n_cols);
+    
+    std::cout << "Images: " << n_images << std::endl;
+    std::cout << "Size: " << n_rows << "x" << n_cols << std::endl;
+    
+    // Read label file header
+    int magic_number_labels = 0, n_labels = 0;
+    
+    labels_file.read((char*)&magic_number_labels, sizeof(magic_number_labels));
+    magic_number_labels = reverseInt(magic_number_labels);
+    
+    labels_file.read((char*)&n_labels, sizeof(n_labels));
+    n_labels = reverseInt(n_labels);
+    
+    std::cout << "Labels: " << n_labels << std::endl;
+    
+
+    std::vector<Matrix> images;
+
+    images.reserve(n_images);
+
+    unsigned char buffer[784];
+
+    for (int img = 0; img < n_images; img++) {
+        images_file.read((char*)buffer, 784);
+        
+        // make a column vector, this is 62x faster than reading byte by byte
+        images.emplace_back(784, 1, buffer, 1.0/255.0);
+    }
+
+    std::cout << images.size() << " images loaded" << std::endl;
+    
+    // read one label
+    std::vector<Matrix> labels;
+    labels.reserve(n_images);
+
+    for (int i = 0; i < n_images; i++) {  // Changed variable name to avoid shadowing
+        unsigned char label = 0;
+        labels_file.read((char*)&label, 1);
+        labels.emplace_back(labelToOneHot(label));  // Use the one-hot conversion
+    }
+
+    std::cout << labels.size() << " labels loaded" << std::endl;
+
+    NeuralNetwork number_gooner = NeuralNetwork(.001);
+    number_gooner.load_model(MODEL_PATH);
+
+    int num_incorrect = 0;
+    int total_images = n_images;
+
+    for (int i = 0; i < n_images; i++) {
+        int result = argmax(number_gooner.forward(images[i]));
+        int curr_label = argmax(labels[i]);
+
+        if (result != curr_label) num_incorrect++;
+    }
+
+    std::cout   << "done testing!" << std::endl
+                << "accuracy: " << num_incorrect << "/" << total_images << std::endl
+                << "do the math yourself lol" << std::endl;
 }

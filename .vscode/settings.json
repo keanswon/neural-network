@@ -48,6 +48,11 @@
         "typeinfo": "cpp",
         "unordered_map": "cpp",
         "variant": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "fstream": "cpp",
+        "__tree": "cpp",
+        "charconv": "cpp",
+        "forward_list": "cpp",
+        "set": "cpp"
     }
 }

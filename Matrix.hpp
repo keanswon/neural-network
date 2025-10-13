@@ -178,6 +178,10 @@ public:
         return result;
     }
 
+    const std::vector<std::vector<double>>& get_data() const { 
+        return data; 
+    }
+
     // print function for debugging
     void print() const {
         std::cout << "Matrix (" << rows << "x" << cols << "):" << std::endl;

@@ -3,6 +3,7 @@
 #include "Matrix.hpp"
 #include <chrono> // updates for data progress every second
 #include <thread>
+#include <fstream>
 
 NeuralNetwork::NeuralNetwork(double lr) {
     learning_rate = lr;
@@ -72,5 +73,114 @@ void NeuralNetwork::train(std::vector<Matrix>& data, std::vector<Matrix>& labels
         std::cout << "~~~~~~~~~~ EPOCH " << epoch << "finished! ~~~~~~~~~~" << std::endl;
     }
 
-    std::cout << "total loss: " << total_loss;
+    std::cout << "total loss: " << total_loss << std::endl;
+}
+
+
+/** 
+ * 
+ * writes model in the form:
+ * 
+ * [ n layers ]
+ * [ for each layer: ]
+ *  [ number of weight rows ]
+ *  [ number of weight cols ]
+ *  [ weight data ]
+ *  [ number of bias rows ]
+ *  [ number of bias cols ]
+ *  [ bias data ]
+ * 
+ * does not save the architecture of the network, that's a problem for a future version lol
+ * 
+ * saving the architecture of the network would allow easier loading of different weights / biases,
+ * more of a modular approach
+ */
+
+
+void NeuralNetwork::save_model(std::string filepath) {
+    std::ofstream file(filepath, std::ios::binary);
+
+    if (!file.is_open()) {
+        std::cerr << "Cannot open file for saving: " << filepath << std::endl;
+        return;
+    }
+
+    int num_layers = layers.size();
+    file.write((char*)&num_layers, sizeof(int));
+
+    for (int i = 0; i < num_layers; i++) {
+        int weight_rows = layers[i].weights.get_rows();
+        int weight_cols = layers[i].weights.get_cols();
+
+        file.write((char*)&weight_rows, sizeof(int));
+        file.write((char*)&weight_cols, sizeof(int));
+
+        for (int r = 0; r < weight_rows; r++) {
+            for (int c = 0; c < weight_cols; c++) {
+                double val = layers[i].weights.get(r, c);
+                file.write((char*)&val, sizeof(double));
+            }
+        }
+
+        int bias_rows = layers[i].biases.get_rows();
+        int bias_cols = layers[i].biases.get_cols();
+
+        file.write((char*)&bias_rows, sizeof(int));
+        file.write((char*)&bias_cols, sizeof(int));
+
+        for (int r = 0; r < bias_rows; r++) {
+            for (int c = 0; c < bias_cols; c++) {
+                double bias = layers[i].biases.get(r, c);
+                file.write((char*)&bias, sizeof(double));
+            }
+        }
+    }
+
+    file.close();
+    std::cout << "Model saved to " << filepath << std::endl;
+}
+
+void NeuralNetwork::load_model(std::string filepath) {
+    std::ifstream file(filepath, std::ios::binary);
+
+    if (!file.is_open()) {
+        std::cerr << "Cannot open file for loading: " << filepath << std::endl;
+        return;
+    }
+
+    layers.clear();
+
+    int num_layers;
+    file.read((char*)&num_layers, sizeof(int));
+
+    for (int i = 0; i < num_layers; i++) {
+        int weight_rows, weight_cols;
+        file.read((char*)&weight_rows, sizeof(int));
+        file.read((char*)&weight_cols, sizeof(int));
+
+        layers.push_back(Layer(weight_cols, weight_rows));
+
+        for (int r = 0; r < weight_rows; r++) {
+            for (int c = 0; c < weight_cols; c++) {
+                double val;
+                file.read((char*)&val, sizeof(double));
+                layers[i].weights.set(r, c, val);
+            }
+        }
+
+        int bias_rows, bias_cols;
+        file.read((char*)&bias_rows, sizeof(int));
+        file.read((char*)&bias_cols, sizeof(int));
+
+        for (int r = 0; r < bias_rows; r++) {
+            for (int c = 0; c < bias_cols; c++) {
+                double val;
+                file.read((char*)&val, sizeof(double));
+                layers[i].biases.set(r, c, val);
+            }
+        }
+    }
+
+    file.close();
+    std::cout << "Model loaded from " << filepath << std::endl;
 }
