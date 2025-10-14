@@ -7,12 +7,14 @@
 #include <unordered_map>
 #include <vector>
 
-const std::string MODEL_PATH = "models/model1.bin";
+const std::string MODEL_PATH = "models/model2.bin";
 const std::string TRAIN_IMAGES = "MNIST/train-images-idx3-ubyte";
 const std::string TRAIN_LABELS = "MNIST/train-labels-idx1-ubyte";
 const std::string TEST_IMAGES = "MNIST/t10k-images-idx3-ubyte";
 const std::string TEST_LABELS = "MNIST/t10k-labels-idx1-ubyte";
-double learning_rate = .0001;
+double learning_rate = .0005;
+double decay_rate = 0.9;
+int batch_size = 32;
 
 std::unordered_map<std::string, std::vector<std::string>> filepath_to_model_iteration; // given a filepath, stores information about it
 
@@ -23,7 +25,7 @@ void test_model(const std::string& images_file, const std::string& labels_file);
 static int argmax(const Matrix& m);
 
 int main() {
-    train_model(TRAIN_IMAGES, TRAIN_LABELS, 5);
+    train_model(TRAIN_IMAGES, TRAIN_LABELS, 10);
     test_model(TEST_IMAGES, TEST_LABELS);
     
     return 0;
@@ -134,9 +136,10 @@ void train_model(const std::string& image_filepath, const std::string& label_fil
     NeuralNetwork number_gooner(learning_rate);
     number_gooner.addLayer(784, 256, Activation::RELU);
     number_gooner.addLayer(256, 128, Activation::RELU);
-    number_gooner.addLayer(128, 10, Activation::SOFTMAX);
+    number_gooner.addLayer(128, 64, Activation::RELU);
+    number_gooner.addLayer(64, 10, Activation::SOFTMAX);
 
-    number_gooner.train(images, labels, num_epochs);
+    number_gooner.train(images, labels, num_epochs, batch_size, decay_rate);
 
     number_gooner.save_model(MODEL_PATH);
 }
@@ -220,7 +223,7 @@ void test_model(const std::string& image_filepath, const std::string& label_file
 
     for (int i = 0; i < n_images; i++) {
         int result = argmax(number_gooner.forward(images[i]));
-        std::cout << "Predicted: " << result << ", Actual: " << argmax(labels[i]) << std::endl;
+        // std::cout << "Predicted: " << result << ", Actual: " << argmax(labels[i]) << std::endl;
 
         int curr_label = argmax(labels[i]);
 

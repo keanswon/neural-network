@@ -17,7 +17,7 @@ public:
     Matrix forward(Matrix& input);
     void backward(Matrix& target, Matrix& output);
     double calculateLoss(Matrix& predicted, Matrix& target);
-    void train(std::vector<Matrix>& data, std::vector<Matrix>& labels, int epochs);
+    void train(std::vector<Matrix>& data, std::vector<Matrix>& labels, int epochs, int batch_size=32, double decay_rate=0.9);
     void save_model(std::string filepath);
     void load_model(std::string filepath);
 };

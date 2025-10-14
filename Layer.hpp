@@ -14,9 +14,12 @@ public:
     Matrix weightGradients;
     Matrix biasGradients;
     Matrix activations;
+    Matrix weightGradientAccumulator;
+    Matrix biasGradientAccumulator;
     
     Layer(int inputSize, int outputSize, Activation act);
     
     Matrix forward(const Matrix& input);
-    Matrix backward(const Matrix& outputGradient, double learningRate);
+    void update_weights(double learning_rate, int batch_size);
+    Matrix backward(const Matrix& outputGradient);
 };

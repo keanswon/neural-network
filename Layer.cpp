@@ -7,6 +7,9 @@ Layer::Layer(int inputSize, int outputSize, Activation act) {
     weights.randomize();
     biases.randomize();
     activation_type = act;
+
+    weightGradientAccumulator = Matrix(outputSize, inputSize);
+    biasGradientAccumulator = Matrix(outputSize, 1);
 }
 
 Matrix Layer::forward(const Matrix& input) {
@@ -33,7 +36,7 @@ Matrix Layer::forward(const Matrix& input) {
 }
 
 // backprop for one layer
-Matrix Layer::backward(const Matrix& outputGradient, double learningRate) {
+Matrix Layer::backward(const Matrix& outputGradient) {
     Matrix gradient;
 
     if (activation_type == Activation::RELU) {
@@ -43,11 +46,13 @@ Matrix Layer::backward(const Matrix& outputGradient, double learningRate) {
     }
 
     Matrix inputsTransposed = inputs.transpose();
-    weightGradients = gradient.multiply(inputsTransposed);
-    biasGradients = gradient;
+    Matrix currentWeightGradients = gradient.multiply(inputsTransposed);
+    Matrix currentBiasGradients = gradient;
     
-    weights = weights.subtract(weightGradients.multiply_scalar(learningRate));
-    biases = biases.subtract(biasGradients.multiply_scalar(learningRate));
+    weightGradientAccumulator = weightGradientAccumulator.add(currentWeightGradients);
+    biasGradientAccumulator = biasGradientAccumulator.add(currentBiasGradients);
+    
+    return weights.transpose().multiply(gradient);
 
     // double grad_norm = 0.0;
     // for (int i = 0; i < gradient.get_rows(); i++) {
@@ -55,6 +60,17 @@ Matrix Layer::backward(const Matrix& outputGradient, double learningRate) {
     // }
     // grad_norm = std::sqrt(grad_norm);
     // std::cout << "Gradient norm: " << grad_norm << std::endl; // more debugging
+}
+
+void Layer::update_weights(double learning_rate, int batch_size) {
+    // Matrix avgWeightGrad = weightGradientAccumulator.multiply_scalar(1.0 / batch_size);
+    // Matrix avgBiasGrad = biasGradientAccumulator.multiply_scalar(1.0 / batch_size);
     
-    return weights.transpose().multiply(gradient);
+    // update
+    weights = weights.subtract(weightGradientAccumulator.multiply_scalar(learning_rate));
+    biases = biases.subtract(biasGradientAccumulator.multiply_scalar(learning_rate));
+    
+    // reset accumulators
+    weightGradientAccumulator = Matrix(weights.get_rows(), weights.get_cols());
+    biasGradientAccumulator = Matrix(biases.get_rows(), biases.get_cols());
 }

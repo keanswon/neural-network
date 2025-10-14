@@ -33,7 +33,7 @@ void NeuralNetwork::backward(Matrix& target, Matrix& output) {
     }
 
     for (int i = layers.size() - 1; i >= 0; i--) {
-        gradient = layers[i].backward(gradient, learning_rate);
+        gradient = layers[i].backward(gradient);
     }
 }
 
@@ -49,7 +49,7 @@ double NeuralNetwork::calculateLoss(Matrix& predicted, Matrix& target) {
     return total_loss;
 }
 
-void NeuralNetwork::train(std::vector<Matrix>& data, std::vector<Matrix>& labels, int epochs) {
+void NeuralNetwork::train(std::vector<Matrix>& data, std::vector<Matrix>& labels, int epochs, int batch_size, double decay_rate) {
     size_t data_count = data.size();
     double total_loss = 0.0;
     auto total_timer = std::chrono::steady_clock::now(); // timer for total time
@@ -72,6 +72,19 @@ void NeuralNetwork::train(std::vector<Matrix>& data, std::vector<Matrix>& labels
             total_loss += calculateLoss(output, labels[idx]);
             backward(labels[idx], output);
 
+            if ((i + 1) % batch_size == 0 || i == data.size() - 1) {
+                int currentBatchSize;
+                if (i == data.size() - 1 && (i + 1) % batch_size != 0) {
+                    currentBatchSize = (i + 1) % batch_size;  // last incomplete batch
+                } else {
+                    currentBatchSize = batch_size;  // full batch
+                }
+                
+                for (auto& layer : layers) {
+                    layer.update_weights(learning_rate, currentBatchSize);
+                }
+            }
+
             auto now = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - last_print);
             if (elapsed.count() >= 1) {
@@ -90,7 +103,7 @@ void NeuralNetwork::train(std::vector<Matrix>& data, std::vector<Matrix>& labels
         std::cout << "~~~~ EPOCH " << epoch + 1 << " finished in " 
                 << minutes << "m " << seconds << "s ~~~~" << std::endl;
 
-        learning_rate *= 0.85; // decay learning rate every epoch
+        learning_rate *= decay_rate; // decay learning rate every epoch
     }
 
     auto timer_end = std::chrono::steady_clock::now();
