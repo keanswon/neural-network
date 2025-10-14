@@ -13,7 +13,7 @@ private:
 
 public:
     NeuralNetwork(double lr);
-    void addLayer(int inputSize, int outputSize);
+    void addLayer(int inputSize, int outputSize, Activation act);
     Matrix forward(Matrix& input);
     void backward(Matrix& target, Matrix& output);
     double calculateLoss(Matrix& predicted, Matrix& target);

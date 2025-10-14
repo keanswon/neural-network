@@ -12,6 +12,7 @@ const std::string TRAIN_IMAGES = "MNIST/train-images-idx3-ubyte";
 const std::string TRAIN_LABELS = "MNIST/train-labels-idx1-ubyte";
 const std::string TEST_IMAGES = "MNIST/t10k-images-idx3-ubyte";
 const std::string TEST_LABELS = "MNIST/t10k-labels-idx1-ubyte";
+double learning_rate = .0001;
 
 std::unordered_map<std::string, std::vector<std::string>> filepath_to_model_iteration; // given a filepath, stores information about it
 
@@ -84,8 +85,8 @@ void train_model(const std::string& image_filepath, const std::string& label_fil
     images_file.read((char*)&n_cols, sizeof(n_cols));
     n_cols = reverseInt(n_cols);
     
-    std::cout << "Images: " << n_images << std::endl;
-    std::cout << "Size: " << n_rows << "x" << n_cols << std::endl;
+    // std::cout << "Images: " << n_images << std::endl;
+    // std::cout << "Size: " << n_rows << "x" << n_cols << std::endl;
     
     // Read label file header
     int magic_number_labels = 0, n_labels = 0;
@@ -96,44 +97,44 @@ void train_model(const std::string& image_filepath, const std::string& label_fil
     labels_file.read((char*)&n_labels, sizeof(n_labels));
     n_labels = reverseInt(n_labels);
     
-    std::cout << "Labels: " << n_labels << std::endl;
+    // std::cout << "Labels: " << n_labels << std::endl;
     
 
     std::vector<Matrix> images;
-    size_t num_images = 60000;
 
-    // use 60,000 images for now
-    images.reserve(num_images);
+    images.reserve(n_images);
 
     unsigned char buffer[784];
 
-    for (size_t img = 0; img < num_images; img++) {
+    for (int img = 0; img < n_images; img++) {
         images_file.read((char*)buffer, 784);
         
         // make a column vector, this is 62x faster than reading byte by byte
         images.emplace_back(784, 1, buffer, 1.0/255.0);
     }
 
-    std::cout << images.size() << " images loaded" << std::endl;
+    // std::cout << images.size() << " images loaded" << std::endl;
     images_file.close();
     
     // Read one label
     std::vector<Matrix> labels;
-    labels.reserve(num_images);
+    labels.reserve(n_images);
 
-    for (size_t i = 0; i < num_images; i++) {  // Changed variable name to avoid shadowing
+    for (int i = 0; i < n_images; i++) {  // Changed variable name to avoid shadowing
         unsigned char label = 0;
         labels_file.read((char*)&label, 1);
-        labels.emplace_back(labelToOneHot(label));  // Use the one-hot conversion
+        Matrix label_one_hot = labelToOneHot(label);
+        // std::cout << "label: " << argmax(label_one_hot) << std::endl;
+        labels.emplace_back(label_one_hot);  // Use the one-hot conversion
     }
 
-    std::cout << labels.size() << " labels loaded" << std::endl;
+    // std::cout << labels.size() << " labels loaded" << std::endl;
     labels_file.close();
     
-    NeuralNetwork number_gooner(.001);
-    number_gooner.addLayer(784, 256);
-    number_gooner.addLayer(256, 128);
-    number_gooner.addLayer(128, 10);
+    NeuralNetwork number_gooner(learning_rate);
+    number_gooner.addLayer(784, 256, Activation::RELU);
+    number_gooner.addLayer(256, 128, Activation::RELU);
+    number_gooner.addLayer(128, 10, Activation::SOFTMAX);
 
     number_gooner.train(images, labels, num_epochs);
 
@@ -168,8 +169,8 @@ void test_model(const std::string& image_filepath, const std::string& label_file
     images_file.read((char*)&n_cols, sizeof(n_cols));
     n_cols = reverseInt(n_cols);
     
-    std::cout << "Images: " << n_images << std::endl;
-    std::cout << "Size: " << n_rows << "x" << n_cols << std::endl;
+    // std::cout << "Images: " << n_images << std::endl;
+    // std::cout << "Size: " << n_rows << "x" << n_cols << std::endl;
     
     // Read label file header
     int magic_number_labels = 0, n_labels = 0;
@@ -180,8 +181,7 @@ void test_model(const std::string& image_filepath, const std::string& label_file
     labels_file.read((char*)&n_labels, sizeof(n_labels));
     n_labels = reverseInt(n_labels);
     
-    std::cout << "Labels: " << n_labels << std::endl;
-    
+    // std::cout << "Labels: " << n_labels << std::endl;
 
     std::vector<Matrix> images;
 
@@ -212,7 +212,7 @@ void test_model(const std::string& image_filepath, const std::string& label_file
     std::cout << labels.size() << " labels loaded" << std::endl;
     labels_file.close();
 
-    NeuralNetwork number_gooner = NeuralNetwork(.001);
+    NeuralNetwork number_gooner = NeuralNetwork(learning_rate);
     number_gooner.load_model(MODEL_PATH);
 
     int num_incorrect = 0;
@@ -220,12 +220,16 @@ void test_model(const std::string& image_filepath, const std::string& label_file
 
     for (int i = 0; i < n_images; i++) {
         int result = argmax(number_gooner.forward(images[i]));
+        std::cout << "Predicted: " << result << ", Actual: " << argmax(labels[i]) << std::endl;
+
         int curr_label = argmax(labels[i]);
 
         if (result != curr_label) num_incorrect++;
     }
 
-    std::cout   << "done testing!" << std::endl
-                << "accuracy: " << num_incorrect << "/" << total_images << std::endl
-                << "do the math yourself lol" << std::endl;
+    int num_correct = total_images - num_incorrect;
+    double accuracy = static_cast<double>(num_correct) / total_images;
+    std::cout << "accuracy: " << num_correct << "/" << total_images
+            << " (" << accuracy * 100.0 << "%)\n";
+
 }

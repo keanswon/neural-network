@@ -9,8 +9,8 @@ NeuralNetwork::NeuralNetwork(double lr) {
     learning_rate = lr;
 }
 
-void NeuralNetwork::addLayer(int inputSize, int outputSize) {
-    layers.push_back(Layer(inputSize, outputSize));
+void NeuralNetwork::addLayer(int inputSize, int outputSize, Activation act) {
+    layers.push_back(Layer(inputSize, outputSize, act));
 }
 
 Matrix NeuralNetwork::forward(Matrix& input) {
@@ -28,7 +28,7 @@ void NeuralNetwork::backward(Matrix& target, Matrix& output) {
 
     for (int i = 0; i < output.get_rows(); i++) {
         for (int j = 0; j < output.get_cols(); j++) {
-            gradient.set(i, j, mse_loss_deriv(output.get(i, j), target.get(i, j)));
+            gradient.set(i, j, output.get(i, j) - target.get(i, j));
         }
     }
 
@@ -38,15 +38,15 @@ void NeuralNetwork::backward(Matrix& target, Matrix& output) {
 }
 
 double NeuralNetwork::calculateLoss(Matrix& predicted, Matrix& target) {
-    double curr_loss = 0; 
-
+    double total_loss = 0.0;
+    const double epsilon = 1e-7;
+    
     for (int i = 0; i < predicted.get_rows(); i++) {
-        for (int j = 0; j < predicted.get_cols(); j++) {
-            curr_loss += mse_loss(predicted.get(i, j), target.get(i, j));
+        if (target.get(i, 0) > 0.5) {  // This is the true class
+            total_loss -= std::log(predicted.get(i, 0) + epsilon);
         }
     }
-
-    return curr_loss;
+    return total_loss;
 }
 
 void NeuralNetwork::train(std::vector<Matrix>& data, std::vector<Matrix>& labels, int epochs) {
@@ -54,16 +54,23 @@ void NeuralNetwork::train(std::vector<Matrix>& data, std::vector<Matrix>& labels
     double total_loss = 0.0;
     auto total_timer = std::chrono::steady_clock::now(); // timer for total time
 
+    std::random_device rd; // for shuffling data
+    std::mt19937 gen(rd());
 
     for (int epoch = 0; epoch < epochs; epoch++) {
         auto last_print = std::chrono::steady_clock::now(); // timer to print every second
         auto epoch_timer = std::chrono::steady_clock::now(); // timer to time the current epoch
 
-        for (size_t i = 0; i < data.size(); i++) {
-            Matrix output = forward(data[i]);
+        std::vector<size_t> indices(data.size());
+        for (size_t i = 0; i < indices.size(); i++) indices[i] = i;
+        std::shuffle(indices.begin(), indices.end(), gen);
 
-            total_loss += calculateLoss(output, labels[i]);
-            backward(labels[i], output);
+        for (size_t i = 0; i < data.size(); i++) {
+            size_t idx = indices[i]; // use shuffled indices for randomization between training data sets
+            Matrix output = forward(data[idx]);
+
+            total_loss += calculateLoss(output, labels[idx]);
+            backward(labels[idx], output);
 
             auto now = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - last_print);
@@ -82,6 +89,8 @@ void NeuralNetwork::train(std::vector<Matrix>& data, std::vector<Matrix>& labels
         
         std::cout << "~~~~ EPOCH " << epoch + 1 << " finished in " 
                 << minutes << "m " << seconds << "s ~~~~" << std::endl;
+
+        learning_rate *= 0.85; // decay learning rate every epoch
     }
 
     auto timer_end = std::chrono::steady_clock::now();
@@ -128,6 +137,9 @@ void NeuralNetwork::save_model(std::string filepath) {
     file.write((char*)&num_layers, sizeof(int));
 
     for (int i = 0; i < num_layers; i++) {
+        int act_type = static_cast<int>(layers[i].activation_type);
+        file.write((char*)&act_type, sizeof(int));
+
         int weight_rows = layers[i].weights.get_rows();
         int weight_cols = layers[i].weights.get_cols();
 
@@ -173,11 +185,15 @@ void NeuralNetwork::load_model(std::string filepath) {
     file.read((char*)&num_layers, sizeof(int));
 
     for (int i = 0; i < num_layers; i++) {
+        int act_type;
+        file.read((char*)&act_type, sizeof(int));
+        Activation activation = static_cast<Activation>(act_type);
+
         int weight_rows, weight_cols;
         file.read((char*)&weight_rows, sizeof(int));
         file.read((char*)&weight_cols, sizeof(int));
 
-        layers.push_back(Layer(weight_cols, weight_rows));
+        layers.push_back(Layer(weight_cols, weight_rows, activation));
 
         for (int r = 0; r < weight_rows; r++) {
             for (int c = 0; c < weight_cols; c++) {

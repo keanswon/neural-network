@@ -155,7 +155,7 @@ public:
     }
 
     // randomize (in-place is fine for initialization)
-    void randomize(double min = -1.0, double max = 1.0) {
+    void randomize(double min = -0.1, double max = 0.1) {
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<double> dist(min, max);

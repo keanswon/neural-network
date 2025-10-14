@@ -41,6 +41,30 @@ inline double mse_loss_deriv(const double predicted, const double target) {
     return 2 * (predicted - target);
 }
 
+inline Matrix softmax(const Matrix& m) {
+    Matrix result(m.get_rows(), m.get_cols());
+    double sum = 0.0;
+    
+    // Find max for numerical stability
+    double max_val = m.get(0, 0);
+    for (int i = 1; i < m.get_rows(); i++) {
+        if (m.get(i, 0) > max_val) max_val = m.get(i, 0);
+    }
+    
+    // Compute exp and sum
+    for (int i = 0; i < m.get_rows(); i++) {
+        result.set(i, 0, std::exp(m.get(i, 0) - max_val));
+        sum += result.get(i, 0);
+    }
+    
+    // Normalize
+    for (int i = 0; i < m.get_rows(); i++) {
+        result.set(i, 0, result.get(i, 0) / sum);
+    }
+    
+    return result;
+}
+
 // Could also add cross-entropy for classification:
 inline double binary_cross_entropy(const double predicted, const double target) {
     const double epsilon = 1e-7; // prevent log(0)
