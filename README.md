@@ -178,4 +178,4 @@ This is an educational project. Feel free to use and modify as needed.
 ## Acknowledgments
 
 - MNIST dataset by Yann LeCun
-- Implementation inspired by various neural network tutorials
+- Math from 3Blue1Brown
