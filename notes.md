@@ -14,4 +14,4 @@ VERSION 2:
     - model 2: learning rate 0.005, 10 epochs --> 96.87% accuracy!
     - fashionmodel.bin
         - trained on fashion-mnist dataset of 9000 images
-        - 10 epochs, 0.001 learning rate, 
+        - 10 epochs, 0.001 learning rate, batch size 16, 10 epochs --> 82.44% accuracy
