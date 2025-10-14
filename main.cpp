@@ -6,16 +6,22 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <fstream>
+#include <sstream>
 
-const std::string MODEL_PATH = "models/model2.bin";
+const std::string FASHION_FILEPATH = "FASHION_MNIST/fashion-mnist_test.csv";
+const std::string MODEL_PATH = "models/fashionmodel.bin";
 const std::string TRAIN_IMAGES = "MNIST/train-images-idx3-ubyte";
 const std::string TRAIN_LABELS = "MNIST/train-labels-idx1-ubyte";
 const std::string TEST_IMAGES = "MNIST/t10k-images-idx3-ubyte";
 const std::string TEST_LABELS = "MNIST/t10k-labels-idx1-ubyte";
-double learning_rate = .0005;
-double decay_rate = 0.9;
-int batch_size = 32;
 
+// adjust parameters here
+double learning_rate = .005;
+double decay_rate = 0.9;
+int batch_size = 16;
+
+// TODO: implement model versioning
 std::unordered_map<std::string, std::vector<std::string>> filepath_to_model_iteration; // given a filepath, stores information about it
 
 int reverseInt(int i);
@@ -23,10 +29,28 @@ Matrix labelToOneHot(unsigned char label);
 void train_model(const std::string& images_file, const std::string& labels_file, int num_epochs);
 void test_model(const std::string& images_file, const std::string& labels_file);
 static int argmax(const Matrix& m);
+std::vector<std::vector<Matrix>> load_fashion_mnist_data();
+void train_fashion_model(std::vector<Matrix>& fashion_images, std::vector<Matrix>& fashion_labels, int num_epochs);
+void test_fashion_model(std::vector<Matrix>& fashion_images, std::vector<Matrix>& fashion_labels);
 
 int main() {
-    train_model(TRAIN_IMAGES, TRAIN_LABELS, 10);
-    test_model(TEST_IMAGES, TEST_LABELS);
+    std::vector<std::vector<Matrix>> fashion_data = load_fashion_mnist_data();
+    std::vector<Matrix> fashion_images = fashion_data[0];
+    std::vector<Matrix> fashion_labels = fashion_data[1];
+    std::cout << "fashion mnist data loaded: " << fashion_images.size() << " images" << std::endl;
+
+    std::vector<Matrix> train_fashion_images(fashion_images.begin(), fashion_images.begin() + 9000);
+    std::vector<Matrix> train_fashion_labels(fashion_labels.begin(), fashion_labels.begin() + 9000);
+    std::vector<Matrix> test_fashion_images(fashion_images.begin() + 9000, fashion_images.end());
+    std::vector<Matrix> test_fashion_labels(fashion_labels.begin() + 9000, fashion_labels.end());
+
+    // train on mnist data
+    // train_model(TRAIN_IMAGES, TRAIN_LABELS, 10);
+    // test_model(TEST_IMAGES, TEST_LABELS);
+
+    // train on fashion mnist data
+    train_fashion_model(train_fashion_images, train_fashion_labels, 10);
+    test_fashion_model(test_fashion_images, test_fashion_labels);
     
     return 0;
 }
@@ -226,6 +250,104 @@ void test_model(const std::string& image_filepath, const std::string& label_file
         // std::cout << "Predicted: " << result << ", Actual: " << argmax(labels[i]) << std::endl;
 
         int curr_label = argmax(labels[i]);
+
+        if (result != curr_label) num_incorrect++;
+    }
+
+    int num_correct = total_images - num_incorrect;
+    double accuracy = static_cast<double>(num_correct) / total_images;
+    std::cout << "accuracy: " << num_correct << "/" << total_images
+            << " (" << accuracy * 100.0 << "%)\n";
+
+}
+
+// fashion mnist data given as a csv file, which is annoying
+std::vector<std::vector<Matrix>> load_fashion_mnist_data() {
+    std::ifstream file(FASHION_FILEPATH);
+    if (!file) { throw std::runtime_error("Could not open FASHION_FILEPATH"); }
+
+    auto trim_cr = [](std::string& s){ if (!s.empty() && s.back()=='\r') s.pop_back(); };
+
+    std::string line;
+    std::vector<Matrix> images, labels;
+
+    // If first line starts with a letter, treat as header and skip
+    std::streampos startpos = file.tellg();
+    if (std::getline(file, line)) {
+        trim_cr(line);
+        if (line.empty() || std::isalpha(static_cast<unsigned char>(line[0]))) {
+            // header consumed
+        } else {
+            file.clear();
+            file.seekg(startpos);
+        }
+    }
+
+    while (std::getline(file, line)) {
+        trim_cr(line);
+        if (line.empty()) continue;
+
+        std::istringstream ss(line);
+        std::string token;
+
+        // read label (first field)
+        if (!std::getline(ss, token, ',')) continue;
+        trim_cr(token);
+        if (token.empty() || !std::isdigit(static_cast<unsigned char>(token[0]))) continue;
+
+        int lbl_int;
+        try { lbl_int = std::stoi(token); }
+        catch (...) { continue; }
+        if (lbl_int < 0 || lbl_int > 9) continue;
+
+        labels.push_back(labelToOneHot(static_cast<unsigned char>(lbl_int)));
+
+        // read 784 pixels
+        unsigned char buffer[784];
+        bool ok = true;
+        for (int i = 0; i < 784; ++i) {
+            if (!std::getline(ss, token, ',')) { ok = false; break; }
+            trim_cr(token);
+            try {
+                int v = std::stoi(token);
+                if (v < 0) v = 0; if (v > 255) v = 255;
+                buffer[i] = static_cast<unsigned char>(v);
+            } catch (...) { ok = false; break; }
+        }
+        if (!ok) { labels.pop_back(); continue; }
+
+        images.emplace_back(784, 1, buffer, 1.0 / 255.0);
+    }
+
+    return {images, labels};
+}
+
+// separate files for training on fashion mnist because the dataset is in a .csv and not -ubyte format
+void train_fashion_model(std::vector<Matrix>& fashion_images, std::vector<Matrix>& fashion_labels, int num_epochs) {
+    NeuralNetwork number_gooner(learning_rate);
+    number_gooner.addLayer(784, 256, Activation::RELU);
+    number_gooner.addLayer(256, 128, Activation::RELU);
+    number_gooner.addLayer(128, 64, Activation::RELU);
+    number_gooner.addLayer(64, 10, Activation::SOFTMAX);
+
+    number_gooner.train(fashion_images, fashion_labels, num_epochs, batch_size, decay_rate);
+
+    number_gooner.save_model(MODEL_PATH);
+}
+
+// test the model
+void test_fashion_model(std::vector<Matrix>& fashion_images, std::vector<Matrix>& fashion_labels) {
+    NeuralNetwork number_gooner = NeuralNetwork(learning_rate);
+    number_gooner.load_model(MODEL_PATH);
+
+    int num_incorrect = 0;
+    int total_images = fashion_images.size();
+
+    for (int i = 0; i < total_images; i++) {
+        int result = argmax(number_gooner.forward(fashion_images[i]));
+        // std::cout << "Predicted: " << result << ", Actual: " << argmax(labels[i]) << std::endl;
+
+        int curr_label = argmax(fashion_labels[i]);
 
         if (result != curr_label) num_incorrect++;
     }

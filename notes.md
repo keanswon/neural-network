@@ -9,5 +9,9 @@ VERSION 1.5:
     - 88.31% accuracy after 2 epochs -- learning rate of .0001
 VERSION 2:
     - Added one more layer: 784 -> 256 -> 128 -> 64 -> 10
-    - learning rate 0.005, 3 epochs --> 94.25% accuracy!
+    - model 1: learning rate 0.005, 3 epochs --> 94.25% accuracy!
     - 1 min 38s per epoch (still takes a while, mainly due to matrix operations)
+    - model 2: learning rate 0.005, 10 epochs --> 96.87% accuracy!
+    - fashionmodel.bin
+        - trained on fashion-mnist dataset of 9000 images
+        - 10 epochs, 0.001 learning rate, 
